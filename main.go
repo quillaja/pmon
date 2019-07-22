@@ -95,6 +95,7 @@ func main() {
 				return
 
 			case <-timer:
+				// TODO: handle non-existent pids better than simply terminating
 				for _, pid := range pids {
 					stat, err := Statm(pid)
 					if err != nil {
