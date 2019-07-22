@@ -1,9 +1,0 @@
-github.com/tklauser/go-sysconf v0.0.0-20190604080227-d90dfe8b2f4b h1:Y4e82WThIQIxeoj3IdMT5sq6AwRPTecvpvbGN04oxn8=
-github.com/tklauser/go-sysconf v0.0.0-20190604080227-d90dfe8b2f4b/go.mod h1:SdvBWAbFJznngzpDtNfz1UIWi4wGUPYtqtD/Akd/1ms=
-github.com/tklauser/numcpus v0.0.0-20181213170026-542d6d9638d9/go.mod h1:Uk6N9CcYOM0f8nBfmdf9874a13Z74bkFHwwvnf5D6/k=
-github.com/tklauser/numcpus v0.0.0-20190604080617-6b5085e2650f h1:iBTeCEg2bdbFYOOGrq1fGFUiJkRPLFP5mRTorwUrIB4=
-github.com/tklauser/numcpus v0.0.0-20190604080617-6b5085e2650f/go.mod h1:K7nJzFYtUWRfjXkgQ+sFeIqPKTzlujqoTQOc+XQvCE8=
-golang.org/x/sys v0.0.0-20181004145325-8469e314837c/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
-golang.org/x/sys v0.0.0-20181213200352-4d1cda033e06/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
-golang.org/x/sys v0.0.0-20190712062909-fae7ac547cb7 h1:LepdCS8Gf/MVejFIt8lsiexZATdoGVyp5bcyS+rYoUI=
-golang.org/x/sys v0.0.0-20190712062909-fae7ac547cb7/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
