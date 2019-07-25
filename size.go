@@ -92,9 +92,9 @@ func ParseUnit(unit string) (Size, error) {
 }
 
 func ParseSize(s string) (Size, error) {
-	suf := strings.TrimSpace(strings.TrimLeft(s, "-0123456789"))
+	suf := strings.TrimSpace(strings.TrimLeft(s, ".-0123456789"))
 	num := strings.TrimSpace(strings.TrimSuffix(s, suf))
-	n, err := strconv.ParseUint(num, 10, 64)
+	n, err := strconv.ParseFloat(num, 64)
 	if err != nil {
 		return 0, fmt.Errorf("invalid numeral \"%s\" in %s", num, s)
 	}
@@ -102,5 +102,5 @@ func ParseSize(s string) (Size, error) {
 	if err != nil {
 		return 0, fmt.Errorf("invalid unit in %s: %s", s, err)
 	}
-	return Size(n) * unit, nil
+	return Size(n * float64(unit)), nil
 }
