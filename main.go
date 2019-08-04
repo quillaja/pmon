@@ -1,31 +1,40 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"math"
 	"math/rand"
 	"os"
+	"os/exec"
 	"os/signal"
 	"strconv"
+	"strings"
 	"time"
 )
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
-	// pid := flag.Uint64("p", 0, "process id")
 	interval := flag.Duration("i", 1*time.Second, "interval between status checks")
 	length := flag.Duration("l", 5*time.Millisecond, "length of time to run")
 	format := flag.String("f", "human", "output format (human, csv, json)")
-	unitf := flag.String("u", "", "unit such as 'MiB' or 'kB'. Default is best fit")
+	unitf := flag.String("u", "", "unit such as 'MiB' or 'kB'. (default is best fit)")
+	cmdf := flag.String("cmd", "", "runs the command and monitors it. SIGKILL is sent when pmon exits.\ncmd's stdout is sent to /dev/null")
 	// pngf := flag.String("png", "", "filename of PNG in which to render a graph")
 	flag.Parse()
 
+	flag.Usage = func() {
+		fmt.Println("Usage: pmon [FLAG]... [PID]...\nMonitor process memory and outputs in various formats.\n")
+		flag.PrintDefaults()
+		fmt.Println("\nExamples:\n\n  pmon -l 5m -u kb 8231\n\tmonitors 8231 for 5 mins showing memory in KiB.")
+		fmt.Println("  pmon -l 1h30m5s -i 5s -f csv -cmd \"sleep 10\" 8231\n\truns 'sleep' and monitors it and 8231 for 1 hour 30 mins 5 sec\n\twith a 5 sec interval and formatting to CSV.")
+	}
+
 	pidargs := flag.Args()
-	if len(pidargs) == 0 {
+	if len(pidargs) == 0 && *cmdf == "" {
 		flag.Usage()
-		// flag.PrintDefaults()
 		return
 	}
 
@@ -37,6 +46,19 @@ func main() {
 			return
 		}
 		pids[i] = uint64(pid)
+	}
+
+	if *cmdf != "" {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		parts := strings.Split(*cmdf, " ")
+		cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
+		err := cmd.Start()
+		if err != nil {
+			fmt.Printf("error with command: %s\n", err)
+			return
+		}
+		pids = append(pids, uint64(cmd.Process.Pid))
 	}
 
 	var style formatter
@@ -95,13 +117,20 @@ func main() {
 				return
 
 			case <-timer:
-				// TODO: handle non-existent pids better than simply terminating
+				if len(pids) == 0 {
+					close(done)
+					return
+				}
+				toDelete := map[uint64]bool{}
+
 				for _, pid := range pids {
 					stat, err := Statm(pid)
 					if err != nil {
-						fmt.Println(err)
-						close(done)
-						return
+						// if pid gives an error, print err to stderr
+						// and mark pid for deletion
+						fmt.Fprint(os.Stderr, err)
+						toDelete[pid] = true
+						continue
 					}
 					if stat[size] > maxSize {
 						maxSize = stat[size]
@@ -120,6 +149,17 @@ func main() {
 
 					if graphing {
 						hist.add(o)
+					}
+				}
+
+				// remove pids marked for deletion
+				if len(toDelete) > 0 {
+					old := pids
+					pids = []uint64{}
+					for _, pid := range old {
+						if del := toDelete[pid]; !del {
+							pids = append(pids, pid)
+						}
 					}
 				}
 
