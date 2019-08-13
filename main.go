@@ -1,17 +1,22 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
 	"math"
 	"math/rand"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
+
+	"github.com/zserge/lorca"
 )
 
 func main() {
@@ -21,8 +26,8 @@ func main() {
 	length := flag.Duration("l", 5*time.Millisecond, "length of time to run")
 	format := flag.String("f", "human", "output format (human, csv, json)")
 	unitf := flag.String("u", "", "unit such as 'MiB' or 'kB'. (default is best fit)")
+	graphf := flag.Bool("graph", false, "show a graph of the memory useage when done.")
 	cmdf := flag.String("cmd", "", "runs the command and monitors it. SIGKILL is sent when pmon exits.\ncmd's stdout is sent to /dev/null")
-	// pngf := flag.String("png", "", "filename of PNG in which to render a graph")
 	flag.Parse()
 
 	flag.Usage = func() {
@@ -79,14 +84,14 @@ func main() {
 	var hist *history
 	var file string
 	// defer file.Close()
-	if false { //*pngf != "" {
+	if *graphf {
 		// file, err = os.Create(*pngf)
 		// file = *pngf
-		_, err = os.Stat(file)
-		if err != nil {
-			fmt.Printf("couldn't open png: %s", err)
-			return
-		}
+		// _, err = os.Stat(file)
+		// if err != nil {
+		// 	fmt.Printf("couldn't open png: %s", err)
+		// 	return
+		// }
 		hist = makeHistory(unit, pids...)
 		if hist.unit == Default {
 			// 'Default' will cause bad values. MiB is a reasonable default
@@ -267,6 +272,69 @@ func (h *history) graph(filename string) error {
 	// }
 	// // plt.Equal()
 	// plt.Save(".", strings.TrimSuffix(filename, ".png"))
+
+	// try lorca for chrome window and plotly.js
+	// this actually isn't too bad
+	type ctx struct {
+		Pid   uint64
+		Times []time.Time
+		Rss   []float64
+	}
+	thedata := []ctx{}
+	for pid := range h.times {
+		thedata = append(thedata, ctx{
+			pid,
+			h.times[pid],
+			h.rss[pid]})
+	}
+
+	html := `
+	<html>
+		<head>
+		<title>pmon</title>
+		<!-- Plotly.js -->
+		<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+		</head>
+		<body><div id="graph"></div></body>
+		<script>
+		let data = [
+			{{ range . }}
+			{
+				x: [{{ range .Times }}"{{.Format "2006-01-02 15:04:05"}}",{{ end }}],
+				y: [{{ range .Rss }}{{.}},{{ end }}],
+				name: {{.Pid}},
+				mode: "scatter",
+			},
+			{{ end }}
+		];
+
+		let layout = {
+			title: "` + fmt.Sprintf("RSS (%s)", h.unit.String()[1:]) + `"
+		};
+
+		Plotly.newPlot('graph', data, layout);
+		</script>
+	</html>
+	`
+	tpl, err := template.New("plot").Parse(html)
+	if err != nil {
+		return err
+	}
+	buf := new(bytes.Buffer)
+	err = tpl.Execute(buf, thedata)
+	if err != nil {
+		return err
+	}
+	page := buf.String()
+	// fmt.Println(page)
+
+	ui, err := lorca.New("data:text/html,"+url.PathEscape(page), "", 640, 480)
+	if err != nil {
+		return err
+	}
+	defer ui.Close()
+	// Wait until UI window is closed
+	<-ui.Done()
 
 	return nil
 }
