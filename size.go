@@ -42,7 +42,17 @@ func (s Size) String() string {
 			return fmt.Sprintf("%.4g%s", float64(s)/float64(u(i)), suffix[i])
 		}
 	}
-	return fmt.Sprintf("%d%s", s, exta)
+	return fmt.Sprintf("%d%s", s, suffix[exta])
+}
+
+func (s Size) Suffix() string {
+	for i := bite; i < exta; i++ {
+		fit := s / u(i+1)
+		if fit == 0 {
+			return suffix[i]
+		}
+	}
+	return suffix[exta]
 }
 
 func (s Size) In(unit Size) float64 {

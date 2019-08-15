@@ -82,7 +82,7 @@ func main() {
 
 	var graphing bool
 	var hist *history
-	var file string
+	// var file string
 	// defer file.Close()
 	if *graphf {
 		// file, err = os.Create(*pngf)
@@ -176,7 +176,7 @@ func main() {
 	<-done
 
 	if graphing {
-		err = hist.graph(file)
+		err = hist.graph()
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -215,63 +215,7 @@ func (h *history) add(o output) {
 	h.max = math.Max(h.max, end)
 }
 
-func (h *history) graph(filename string) error {
-	// sucks-----
-	// lines := []chart.Series{}
-	// for pid := range h.times {
-	// 	lines = append(lines, chart.TimeSeries{
-	// 		Name:    strconv.FormatUint(pid, 10),
-	// 		XValues: h.times[pid],
-	// 		YValues: h.rss[pid],
-	// 	})
-	// }
-
-	// g := chart.Chart{
-	// 	Series: lines,
-	// 	XAxis:  chart.XAxis{Style: chart.StyleShow()},
-	// }
-	// g.YAxis.Name = "Resident Size (" + h.unit.String() + ")"
-	// // manually create y
-	// g.YAxis.Range = &chart.ContinuousRange{Min: 0, Max: h.max + 0.1*h.max}
-	// return g.Render(chart.PNG, w)
-
-	// also sucks -----
-	// p, _ := plot.New()
-
-	// p.Y.Label.Text = "Resident Size (" + h.unit.String() + ")"
-	// p.X.Tick.Marker = plot.TimeTicks{Format: "2006-01-02\n15:04"}
-
-	// for pid := range h.times {
-	// 	pts := make(plotter.XYs, 0)
-	// 	for i := range h.times[pid] {
-	// 		pts = append(pts, plotter.XY{
-	// 			X: float64(h.times[pid][i].Unix()),
-	// 			Y: h.rss[pid][i]})
-	// 	}
-	// 	plotutil.AddLinePoints(p, strconv.FormatUint(pid, 10), pts)
-	// }
-	// return p.Save(800, 600, filename)
-
-	// try another package
-	// this one is easier to use, except the names of types are idiotic
-	// plt.Reset(true, nil)
-	// plt.SetYlabel("Resident Size ("+h.unit.String()+")", nil)
-	// plt.Legend(&plt.A{LegLoc: "left", LegNcol: 2})
-
-	// for pid := range h.times {
-	// 	// make x's
-	// 	x := []float64{}
-	// 	for i := range h.times[pid] {
-	// 		x = append(x, float64(i))
-	// 	}
-	// 	// make plot
-	// 	plt.Plot(x, h.rss[pid], &plt.A{
-	// 		L:      strconv.FormatUint(pid, 10),
-	// 		C:      colorful.FastHappyColor().Hex(),
-	// 		Closed: false})
-	// }
-	// // plt.Equal()
-	// plt.Save(".", strings.TrimSuffix(filename, ".png"))
+func (h *history) graph() error {
 
 	// try lorca for chrome window and plotly.js
 	// this actually isn't too bad
@@ -309,7 +253,10 @@ func (h *history) graph(filename string) error {
 		];
 
 		let layout = {
-			title: "` + fmt.Sprintf("RSS (%s)", h.unit.String()[1:]) + `"
+			autosize: true,
+			width: 780,
+			height: 580,
+			title: "` + fmt.Sprintf("RSS (%s)", h.unit.Suffix()) + `"
 		};
 
 		Plotly.newPlot('graph', data, layout);
@@ -328,7 +275,7 @@ func (h *history) graph(filename string) error {
 	page := buf.String()
 	// fmt.Println(page)
 
-	ui, err := lorca.New("data:text/html,"+url.PathEscape(page), "", 640, 480)
+	ui, err := lorca.New("data:text/html,"+url.PathEscape(page), "", 800, 600)
 	if err != nil {
 		return err
 	}
@@ -346,16 +293,18 @@ type output struct {
 	peakResident, currentResident Size
 }
 
+const timefmt = "2006-01-02 15:04:05"
+
 type formatter func(o output, unit Size) string
 
 func human(o output, unit Size) string {
-	const f = "%-28s %-15s %-15s %-15s %-15s %-15s"
+	const f = "%-20s %-15s %-15s %-15s %-15s %-15s"
 	zero := output{}
 	if o == zero {
 		return fmt.Sprintf(f, "time", "pid", "peak_size", "current_size", "peak_resident", "current_resident")
 	}
 	return fmt.Sprintf(f,
-		o.when.Format(time.RFC3339), strconv.FormatUint(o.pid, 10),
+		o.when.Format(timefmt), strconv.FormatUint(o.pid, 10),
 		o.peakSize.InString(unit), o.currentSize.InString(unit),
 		o.peakResident.InString(unit), o.currentResident.InString(unit))
 }
@@ -367,7 +316,7 @@ func csv(o output, unit Size) string {
 		return fmt.Sprintf(f, "time", "pid", "peak_size", "current_size", "peak_resident", "current_resident")
 	}
 	return fmt.Sprintf(f,
-		o.when.Format(time.RFC3339), strconv.FormatUint(o.pid, 10),
+		o.when.Format(timefmt), strconv.FormatUint(o.pid, 10),
 		o.peakSize.InString(unit), o.currentSize.InString(unit),
 		o.peakResident.InString(unit), o.currentResident.InString(unit))
 }
@@ -375,9 +324,9 @@ func csv(o output, unit Size) string {
 func json(o output, unit Size) string {
 	var f string
 	if unit == Default {
-		f = `{"time": "%s", "pid": %s, "peak_size": "%s", "current_size": "%s", "peak_resident": "%s", "current_resident": "%s"}`
+		f = `{"time": "%s", "pid": %s, "peak_size": "%s", "current_size": "%s", "peak_resident": "%s", "current_resident": "%s"},`
 	} else {
-		f = `{"time": "%s", "pid": %s, "peak_size": %s, "current_size": %s, "peak_resident": %s, "current_resident": %s}`
+		f = `{"time": "%s", "pid": %s, "peak_size": %s, "current_size": %s, "peak_resident": %s, "current_resident": %s},`
 	}
 	zero := output{}
 	if o == zero {
@@ -386,7 +335,7 @@ func json(o output, unit Size) string {
 		return ""
 	}
 	return fmt.Sprintf(f,
-		o.when.Format(time.RFC3339), strconv.FormatUint(o.pid, 10),
+		o.when.Format(timefmt), strconv.FormatUint(o.pid, 10),
 		o.peakSize.InString(unit), o.currentSize.InString(unit),
 		o.peakResident.InString(unit), o.currentResident.InString(unit))
 
